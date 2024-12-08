@@ -15,6 +15,7 @@
     "express-validator": "^7.0.1",
     "jsonwebtoken": "^9.0.0",
     "mysql2": "^3.11.4",
+    "openai": "^4.76.0",
     "uuid": "^9.0.0"
   },
   "devDependencies": {

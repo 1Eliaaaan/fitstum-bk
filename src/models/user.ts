@@ -1,6 +1,12 @@
 import { pool } from "../config/db";
 import { RowDataPacket, ResultSetHeader } from "mysql2";
+import OpenAI from "openai";
+import { openaienvs } from "../config/ai";
 
+const openai = new OpenAI({
+  apiKey: openaienvs.apikey,
+  organization: openaienvs.org,
+});
 export interface User {
   id: number;
   username: string;
@@ -98,6 +104,96 @@ export class UserProfileStore {
       [iduser]
     );
     return updatedRows[0] as UserProfile | undefined;
+  }
+
+  async createRoutine(
+    age: number,
+    weight: number,
+    height: number,
+    objective: string,
+    training_days: number
+  ): Promise<string | null> {
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        { role: "system", content: "You are a helpful assistant." },
+        {
+          role: "user",
+          content: `You can make an exercise routine for ${training_days} 
+          days for a person who is ${age} years old and weighs ${weight} KG with a height of ${height}CM and 
+          her goal is ${objective}.`,
+        },
+      ],
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "routine_schema",
+          schema: {
+            type: "object",
+            properties: {
+              routines: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    exercise: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        properties: {
+                          exercise: { type: "string" },
+                          duration: { type: "string" },
+                          calories: { type: "number" },
+                          sets: { type: "number" },
+                          reps: { type: "number" },
+                          imgUrl: { type: "string", format: "uri" },
+                          videoUrl: { type: "string", format: "uri" },
+                        },
+                        required: [
+                          "exercise",
+                          "duration",
+                          "calories",
+                          "sets",
+                          "reps",
+                          "imgUrl",
+                          "videoUrl",
+                        ],
+                      },
+                    },
+                  },
+                  required: ["exercise"],
+                },
+              },
+            },
+            required: ["routines"],
+          },
+        },
+      },
+    });
+
+    return completion.choices[0].message.content;
+  }
+
+  async saveRoutine(
+    userid: string,
+    routines: string
+  ): Promise<UserProfile | undefined> {
+    const [result] = await pool.query<ResultSetHeader>(
+      `INSERT INTO user_routines (iduser,routines)
+       VALUES (?, ?)
+       ON DUPLICATE KEY UPDATE
+       routines = VALUES(routines)`,
+      [userid, routines]
+    );
+    return;
+  }
+
+  async findUserRoutinesById(iduser: string): Promise<UserProfile | undefined> {
+    const [rows] = await pool.query<RowDataPacket[]>(
+      "SELECT * FROM user_routines WHERE iduser = ?",
+      [iduser]
+    );
+    return rows[0] as UserProfile | undefined;
   }
 }
 

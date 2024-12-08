@@ -72,6 +72,17 @@ router.post(
         return res.status(404).json({ message: "User not found" });
       }
 
+      const routines = await userProfileStore.createRoutine(
+        age,
+        weight,
+        height,
+        objective,
+        training_days
+      );
+      if (!routines) {
+        return res.status(404).json({ message: "Routines not found" });
+      }
+      await userProfileStore.saveRoutine(userId, routines);
       res.json({
         message: "User profile update successfully",
         profile: userProfile,
@@ -117,4 +128,41 @@ router.get(
     }
   }
 );
+
+router.get(
+  "/userRoutines/:id",
+  authenticateToken,
+  async (req: AuthRequest, res) => {
+    try {
+      const userId = req.params.id;
+      console.log("userid", req.userId);
+      if (!userId) {
+        return res.status(401).json({ message: "User not authenticated" });
+      }
+
+      if (userId != req.userId) {
+        res.status(401).json({ message: "User not allowed" });
+      }
+
+      const user = await userProfileStore.findByIdUser(parseInt(userId));
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const userRoutines = await userProfileStore.findUserRoutinesById(userId);
+      if (!userRoutines) {
+        return res.status(404).json({ message: "User routines not found" });
+      }
+
+      res.json({
+        message: "User profile retrieved successfully",
+        profile: userRoutines,
+      });
+    } catch (error) {
+      console.error("Error retrieving user profile:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  }
+);
+
 export const userRouter = router;
